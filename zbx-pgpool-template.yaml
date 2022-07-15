@@ -1,0 +1,342 @@
+zabbix_export:
+  version: '6.0'
+  date: '2022-07-15T12:45:27Z'
+  groups:
+    -
+      uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
+      name: Templates/Applications
+    -
+      uuid: 748ad4d098d447d492bb935c907f652f
+      name: Templates/Databases
+  templates:
+    -
+      uuid: c5108af8534d4f249d01882134625932
+      template: 'Pgpool2 - zabbix agent'
+      name: 'Pgpool2 - zabbix agent'
+      description: 'Pgpool2 cluster monitoring'
+      groups:
+        -
+          name: Templates/Applications
+        -
+          name: Templates/Databases
+      discovery_rules:
+        -
+          uuid: 36e92a45d3794be693c3189878fce54a
+          name: 'Pgpool2 backend discovery'
+          key: pg-backend.discovery
+          delay: 5m
+          item_prototypes:
+            -
+              uuid: 0b420049cc3449c997744cd7f4827d6c
+              name: 'PGPOOL: {#PG_NODE} hostname'
+              type: DEPENDENT
+              key: 'pg-backend.hostname["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.hostname
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: c125dedc5d3e4df0a9fc1468a30685c3
+              name: 'PGPOOL: {#PG_NODE} backend role'
+              type: DEPENDENT
+              key: 'pg-backend.pg_role["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              valuemap:
+                name: Primary/Standby
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.role
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if ((value) === "primary") {
+                        return 1
+                      } else if ((value) === "standby") { 
+                        return 2 
+                      }
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: 7bb2d54d02b349b3ad3b5183813a84cb
+              name: 'PGPOOL: {#PG_NODE} backend pg_status'
+              type: DEPENDENT
+              key: 'pg-backend.pg_status["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.pg_status
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if ((value) === "up") {
+                        return 1
+                      } else { return 0 }
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+              trigger_prototypes:
+                -
+                  uuid: a6872f7209f8411ea61c5db835beb932
+                  expression: 'last(/Pgpool2 - zabbix agent/pg-backend.pg_status["{#PG_NODE}"])=0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.pg_status["{#PG_NODE}"])=1'
+                  name: 'PGPOOL: {#PG_NODE} - pg backend is down'
+                  priority: HIGH
+                  tags:
+                    -
+                      tag: PGPOOL
+                      value: Backends
+            -
+              uuid: 79ec24b960e6480a9b1c0a934f250ede
+              name: 'PGPOOL: {#PG_NODE} replication delay'
+              type: DEPENDENT
+              key: 'pg-backend.repl_delay["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.replication_delay
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+              trigger_prototypes:
+                -
+                  uuid: e74a978a79a448d3929c0ee734f55a55
+                  expression: 'last(/Pgpool2 - zabbix agent/pg-backend.repl_delay["{#PG_NODE}"])>=100'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.repl_delay["{#PG_NODE}"])=0'
+                  name: 'PGPOOL: {#PG_NODE} - backend replication delay >= 100'
+                  priority: WARNING
+                  tags:
+                    -
+                      tag: PGPOOL
+                      value: Backends
+                -
+                  uuid: b571163d40d749f590e1cc5ac5043ade
+                  expression: 'last(/Pgpool2 - zabbix agent/pg-backend.repl_delay["{#PG_NODE}"])>=1000'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.repl_delay["{#PG_NODE}"])<100'
+                  name: 'PGPOOL: {#PG_NODE} - backend replication delay >= 1000'
+                  priority: HIGH
+                  tags:
+                    -
+                      tag: PGPOOL
+                      value: Backends
+            -
+              uuid: ca2fb4f7777c45eaa58f1e4a64cb7a5c
+              name: 'PGPOOL: {#PG_NODE} replication state'
+              type: DEPENDENT
+              key: 'pg-backend.repl_state["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              valuemap:
+                name: 'Reprication state'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.replication_state
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if ((value) === "streaming") {
+                        return 1
+                      } else { 
+                        return 0 
+                      }
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: 3ee78eed1c70437a8957424840defefe
+              name: 'PGPOOL: {#PG_NODE} replication sync state'
+              type: DEPENDENT
+              key: 'pg-backend.repl_sync["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              valuemap:
+                name: 'Replication sync'
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.replication_sync_state
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if ((value) === "async") {
+                        return 1
+                      } else { 
+                        return 0 
+                      }
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: e296188fd1774e3f95c5f9935fe03668
+              name: '{#PG_NODE}: Backend get state'
+              key: 'pg-backend.state["{#PG_NODE}"]'
+              delay: 5m
+              history: 30d
+              trends: '0'
+              value_type: TEXT
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: 1d4faf16a3ae4a47ac4527b5ace704c7
+              name: 'PGPOOL: {#PG_NODE} backend status'
+              type: DEPENDENT
+              key: 'pg-backend.status["{#PG_NODE}"]'
+              delay: '0'
+              history: 21d
+              trends: 90d
+              valuemap:
+                name: Up/Down
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.status
+                -
+                  type: JAVASCRIPT
+                  parameters:
+                    - |
+                      if ((value) === "up") {
+                        return 1
+                      } else { return 0 }
+              master_item:
+                key: 'pg-backend.state["{#PG_NODE}"]'
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+              trigger_prototypes:
+                -
+                  uuid: 3a97d68baf6b49438dc338c028eb0285
+                  expression: 'last(/Pgpool2 - zabbix agent/pg-backend.status["{#PG_NODE}"])=0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.status["{#PG_NODE}"])=1'
+                  name: 'PGPOOL: {#PG_NODE} - backend is down'
+                  priority: HIGH
+                  tags:
+                    -
+                      tag: PGPOOL
+                      value: Backends
+          trigger_prototypes:
+            -
+              uuid: b6df39e5377a481d9aa8b0211d371310
+              expression: 'last(/Pgpool2 - zabbix agent/pg-backend.pg_role["{#PG_NODE}"])=1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.status["{#PG_NODE}"])=1'
+              name: 'PGPOOL: {#PG_NODE} - node is running in Master mode'
+              priority: INFO
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+            -
+              uuid: 970cee34739248da814823cac008f92f
+              expression: 'last(/Pgpool2 - zabbix agent/pg-backend.pg_role["{#PG_NODE}"])=2'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Pgpool2 - zabbix agent/pg-backend.status["{#PG_NODE}"])=2'
+              name: 'PGPOOL: {#PG_NODE} - node is running in Standby mode'
+              priority: INFO
+              tags:
+                -
+                  tag: PGPOOL
+                  value: Backends
+      valuemaps:
+        -
+          uuid: 6ab3521644ff44b9b2145df6e177c67d
+          name: Primary/Standby
+          mappings:
+            -
+              value: '1'
+              newvalue: Primary
+            -
+              value: '2'
+              newvalue: Standby
+        -
+          uuid: ad1f3fa4e1704b8b814225770a50fae1
+          name: 'Replication sync'
+          mappings:
+            -
+              value: '1'
+              newvalue: Async
+            -
+              value: '0'
+              newvalue: '--'
+            -
+              type: IN_RANGE
+              value: 2-10
+              newvalue: Error
+        -
+          uuid: 88ca8bb056e849a2841a0ae0b9e54d9a
+          name: 'Reprication state'
+          mappings:
+            -
+              value: '1'
+              newvalue: Streaming
+            -
+              value: '0'
+              newvalue: '--'
+            -
+              type: IN_RANGE
+              value: 2-10
+              newvalue: Error
+        -
+          uuid: 94e16c5a30bd40afb315277a26cf0028
+          name: Up/Down
+          mappings:
+            -
+              value: '1'
+              newvalue: Up
+            -
+              value: '0'
+              newvalue: Down
